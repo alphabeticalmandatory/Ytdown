@@ -1,31 +1,54 @@
 import streamlit as st
-from pytubefix import YouTube
+from pytube import YouTube
 from io import BytesIO
 
-st.title("🎥 YouTube Video Downloader")
+st.title("🎥 YouTube Downloader (with itag search & sort)")
 
-# Step 1: Input YouTube URL
 url = st.text_input("Enter YouTube video URL:")
 
 if url:
     try:
         yt = YouTube(url)
-        st.subheader(f"Title: {yt.title}")
-        st.write(f"Length: {yt.length} seconds")
-        st.write(f"Views: {yt.views}")
+        st.subheader(f"📺 {yt.title}")
+        st.write(f"⏱️ Length: {yt.length} sec")
+        st.write(f"👁️ Views: {yt.views:,}")
 
-        # Step 2: Show available streams
-        streams = yt.streams.filter(progressive=True, file_extension='mp4')
+        streams = yt.streams
         stream_data = {str(s.itag): s for s in streams}
-        
-        if stream_data:
-            st.write("Available streams:")
-            for itag, stream in stream_data.items():
-                st.write(f"itag: {itag} | Resolution: {stream.resolution} | FPS: {stream.fps} | Type: {stream.mime_type}")
-            
-            # Step 3: Ask user to select an itag
-            selected_itag = st.text_input("Enter itag of the stream you want to download:")
-            
+
+        # Search and Sort Controls
+        sort_option = st.selectbox("Sort streams by:", ["itag", "type", "resolution"])
+        search_query = st.text_input("🔍 Filter by keyword (e.g., 720p, audio, mp4)")
+
+        # Filter and sort streams
+        def stream_key(s):
+            if sort_option == "type":
+                return s.type
+            elif sort_option == "resolution":
+                return s.resolution or ""
+            return s.itag
+
+        filtered_streams = [
+            s for s in streams
+            if search_query.lower() in str(s.itag).lower()
+            or search_query.lower() in (s.type or '').lower()
+            or search_query.lower() in (s.resolution or '').lower()
+            or search_query.lower() in (s.mime_type or '').lower()
+        ] if search_query else streams
+
+        filtered_streams = sorted(filtered_streams, key=stream_key)
+
+        if filtered_streams:
+            st.write("🎞️ Available Streams:")
+            for s in filtered_streams:
+                st.write(
+                    f"itag: {s.itag} | Type: {s.type} | "
+                    f"Res: {s.resolution or 'N/A'} | FPS: {getattr(s, 'fps', 'N/A')} | "
+                    f"Bitrate: {getattr(s, 'abr', 'N/A')} | Mime: {s.mime_type}"
+                )
+
+            selected_itag = st.text_input("Enter itag to download:")
+
             if selected_itag in stream_data:
                 if st.button("Download"):
                     selected_stream = stream_data[selected_itag]
@@ -33,20 +56,20 @@ if url:
                     selected_stream.stream_to_buffer(buffer)
                     buffer.seek(0)
 
-                    st.success("Download ready!")
-                    
-                    # Step 4: Provide download button
+                    ext = selected_stream.mime_type.split('/')[-1]
+                    filename = f"{yt.title}.{ext}".replace(" ", "_")
+
+                    st.success("✅ Download Ready")
                     st.download_button(
-                        label="💾 Save video file",
+                        label="💾 Save File",
                         data=buffer,
-                        file_name=f"{yt.title}.mp4",
-                        mime='video/mp4'
+                        file_name=filename,
+                        mime=selected_stream.mime_type
                     )
             elif selected_itag:
-                st.error("Invalid itag selected. Please try again.")
-
+                st.error("❌ Invalid itag selected.")
         else:
-            st.warning("No progressive MP4 streams found.")
+            st.warning("No streams matched your filter.")
 
     except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.error(f"Error: {e}")
