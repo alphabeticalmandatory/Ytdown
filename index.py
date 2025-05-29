@@ -1,5 +1,5 @@
 import streamlit as st
-from pytube import YouTube
+from pytubefix import YouTube
 from io import BytesIO
 
 st.title("🎥 YouTube Downloader (with itag search & sort)")
