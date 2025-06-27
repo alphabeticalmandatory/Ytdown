@@ -41,17 +41,36 @@ if url:
         if filtered_streams:
             st.write("🎞️ Available Streams:")
             for s in filtered_streams:
+                # Estimate file size
+                file_size = "N/A"
+                if hasattr(s, 'bitrate') and s.bitrate and yt.length:
+                    try:
+                        # Convert bitrate from bps to MB
+                        size_in_mb = (int(s.bitrate) * yt.length) / (8 * 1024 * 1024)
+                        file_size = f"{size_in_mb:.2f}MB"
+                    except:
+                        pass
+                
                 st.write(
                     f"itag: {s.itag} | Type: {s.type} | "
                     f"Res: {s.resolution or 'N/A'} | FPS: {getattr(s, 'fps', 'N/A')} | "
-                    f"Bitrate: {getattr(s, 'abr', 'N/A')} | Mime: {s.mime_type}"
+                    f"Bitrate: {getattr(s, 'abr', 'N/A')} | Size: {file_size} | Mime: {s.mime_type}"
                 )
 
             selected_itag = st.text_input("Enter itag to download:")
 
             if selected_itag in stream_data:
+                selected_stream = stream_data[selected_itag]
+                
+                # Show estimated file size before download
+                if hasattr(selected_stream, 'bitrate') and selected_stream.bitrate and yt.length:
+                    try:
+                        size_in_mb = (int(selected_stream.bitrate) * yt.length) / (8 * 1024 * 1024)
+                        st.info(f"Estimated file size: {size_in_mb:.2f} MB")
+                    except:
+                        st.info("Could not estimate file size")
+                
                 if st.button("Download"):
-                    selected_stream = stream_data[selected_itag]
                     buffer = BytesIO()
                     selected_stream.stream_to_buffer(buffer)
                     buffer.seek(0)
